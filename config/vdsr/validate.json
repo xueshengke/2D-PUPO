@@ -1,0 +1,73 @@
+{
+
+  "model" :
+  {
+    "depth" : 10,
+
+    "decorate_model": false,
+
+    "attention" : "",
+
+    "bn_mask" : false,
+
+    "scale_mask" : false,
+
+    "use_bn" : false,
+
+    "use_scale" : false,
+
+    "final" : false,
+
+    "merge_conv_bn" : false
+
+  },
+
+  "train" :
+  {
+    "batch_size" : 30,
+
+    "epochs" : 200,
+
+    "optimizer" : "Adam",
+
+    "initial_learning_rate" : 1e-3,
+
+    "stop_patience" : 20,
+
+    "reduce_factor" : 0.31622776601683794,
+
+    "reduce_patience" : 5,
+
+    "minimal_learning_rate" : 1e-8,
+
+    "restore_model" : true,
+
+    "restore_weights" : true,
+
+    "pre_model_path" : "results/VDSR-5/train/VDSR-5_loss0.0020_psnr44.8888.h5",
+
+    "save_metrics" : true,
+
+    "save_ckpt_period" : 1,
+
+    "save_weights_only" : true,
+
+    "lambda_alpha" : 1e-8,
+
+    "lambda_gamma" : 1e-8,
+
+    "lambda_beta" : 1e-8,
+
+    "delta_acc" : 0.01,
+
+    "verbose" : 1
+  },
+
+  "prune" :
+  {
+
+    "sparsity" : "0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90"
+
+  }
+
+}

@@ -1,0 +1,14 @@
+
+run_cmds.txt
+*.pb
+*.pyc
+*.bak
+
+.idea/
+checkpoints/*
+figures/*
+logs/*
+models/.ipynb_checkpoints/
+models/*.bak
+results/*
+test/*.h5
