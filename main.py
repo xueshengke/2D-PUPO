@@ -16,7 +16,7 @@ def main(config, train_set, valid_set):
     # initialize handler
     runner = entrance.Runner(model=model, config=config, adapter=adapter)
 
-    if opts.run == 'train':
+    if known_args.run == 'train':
         # train model
         history = runner.train(train_set=train_set, valid_set=valid_set)
 
@@ -26,7 +26,7 @@ def main(config, train_set, valid_set):
 
         runner.save_metrics()
 
-    elif opts.run == 'validate':
+    elif known_args.run == 'validate':
 
         # test model
         scores = runner.validate(test_set=valid_set)
@@ -65,23 +65,30 @@ def main(config, train_set, valid_set):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu',   default='1',     type=str,  help='Use GPU, e.g., --gpu=0,1,2...')
-    parser.add_argument('--run',   default='Train', type=str,  help='e.g., --run=train, test, prune, or compress')
-    parser.add_argument('--data', default='MRI_3T', type=str, help='e.g., --model=Cifar-10, Smoke-3, CamVid')
-    parser.add_argument('--model', default='VDSR',  type=str,  help='e.g., --model=ResNet, SmokeNet')
-    opts = parser.parse_args()
-    opts.run = opts.run.lower()
-    opts.data = opts.data.lower()
-    opts.model = opts.model.lower()
+    parser.add_argument('--gpu', default='1',
+                        type=str, help='Use GPU, e.g., --gpu=0,1,2...')
+    parser.add_argument('--run', default='train',
+                        type=str, help='e.g., --run=train, test, prune, or compress')
+    parser.add_argument('--data', default='MRI_3T',
+                        type=str, help='e.g., --model=Cifar-10, Smoke-3, CamVid')
+    parser.add_argument('--model', default='VDSR',
+                        type=str, help='e.g., --model=ResNet, SmokeNet')
+    known_args, unknown_args = parser.parse_known_args()
+    if len(unknown_args):
+        print('WARNING: unknown arguments: {}. Use "python main.py --help" for details'.format(unknown_args))
+    known_args.run = known_args.run.lower()
+    known_args.data = known_args.data.lower()
+    known_args.model = known_args.model.lower()
 
     # use GPU if available, multi-GPU training dest not work now
-    useGPU(opts.gpu)  # '0,1,2,3'
+    sess = useGPU(known_args.gpu)  # '0,1,2,3'
 
-    config_data_file = os.path.join('config', 'datasets', opts.data + '.json')
-    config_model_file = os.path.join('config', opts.model, opts.run + '.json')
-    config = config_parser.LoadConfig(opts)
+    config_data_file = os.path.join('config', 'datasets', known_args.data + '.json')
+    config_model_file = os.path.join('config', known_args.model, known_args.run + '.json')
+    config = config_parser.LoadConfig(known_args)
     config = config.load_data_config(config_data_file)
     config = config.load_model_config(config_model_file)
+    config.session = sess
 
     # load the dataset
     train_set, valid_set = datasets.prepare.load(config)

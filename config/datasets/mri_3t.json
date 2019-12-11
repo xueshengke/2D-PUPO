@@ -1,14 +1,12 @@
 {
-  "path" : "/home/xiaobingt/xueshengke/dataset/MRI_3T",
-
-  "num_classes" : 1,
-
-  "data_dim" : "256, 256, 1",
-
-  "data_format" : "channels_last",
-
-  "data_augmentation" : true,
-
-  "subtract_pixel_mean": false
-
+  "base": {
+    "dataset_path": "/home/xiaobingt/xueshengke/dataset/MRI_3T",
+    "num_classes": 1,
+    "data_dim": "256, 256, 1",
+    "data_format": "channels_last",
+    "data_augmentation": true,
+    "subtract_pixel_mean": false,
+    "use_generator": false,
+    "dataset_url": ""
+  }
 }

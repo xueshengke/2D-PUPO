@@ -6,12 +6,13 @@ import numpy as np
 from keras import backend as K
 import keras.backend.tensorflow_backend as KTF
 
+
 def useGPU(gpu_id):
     pid = os.getpid()
     if not gpu_id:
-        print('Use CPU, PID: {}'.format(pid))
+        print('---- Use CPU, PID: {} ----'.format(pid))
     else:
-        print('Use GPU: {}, PID: {}'.format(gpu_id, pid))
+        print('---- Use GPU: {}, PID: {} ----'.format(gpu_id, pid))
     # only use limited GPU memory
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
     config = tf.ConfigProto()
@@ -19,6 +20,8 @@ def useGPU(gpu_id):
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     KTF.set_session(sess)
+    return sess
+
 
 def var_step_decay(epoch):
     """Learning Rate Schedule
@@ -54,6 +57,7 @@ def var_step_decay(epoch):
     print('Learning rate reduces to: %e' % lr)
     return lr
 
+
 def fix_step_decay(epoch):
     """Learning Rate Schedule
 
@@ -76,32 +80,39 @@ def fix_step_decay(epoch):
     print('Learning rate reduces to: %e' % lr)
     return lr
 
+
 def combine_reg(w, c1=0., c2=1e+1):
     return c1 * l01_reg(w) + c2 * rate_reg(w, rate=0.50)
+
 
 def l01_reg(w):
     # return (tf.sign(0.5 - w) * (w - 0.5) + 1)
     return - 0.5 * K.mean(K.square(w - 0.5) - 0.25)
 
+
 def rate_reg(w, rate=0.10, coeff=1.0):
     return coeff * 0.5 * K.square(K.mean(K.abs(w)) - rate)
+
 
 # def l01_reg(w, coeff=1e-2):
 #     return - coeff * 0.5 * (K.square(w) - 1)
 
 def np_sigmoid(x, a=1.):
-    s = 1 / (1 + np.exp(-a*x))
+    s = 1 / (1 + np.exp(-a * x))
     return s
 
+
 def tf_sigmoid(x, a=1.):
-    s = 1 / (1 + tf.exp(-a*x))
+    s = 1 / (1 + tf.exp(-a * x))
     return s
+
 
 def binomial(prob):
     prob_vec = np.reshape(prob, [-1, ])
     mask = np.random.binomial(size=prob_vec.size, n=1, p=prob_vec)
     mask = np.reshape(mask, prob.shape)
     return mask
+
 
 def fftshift(x, axes=None):
     for axis in axes:
@@ -118,6 +129,7 @@ def fftshift(x, axes=None):
         x = tf.concat([y, z], axis=axis)
 
     return x
+
 
 def normalize(x, min_val=None, max_val=None):
     if min_val is None: min_val = np.min(x)
@@ -382,6 +394,7 @@ class MinMaxLimit(Constraint):
 
 def get_type(layer):
     return layer.__class__.__name__
+
 
 def get_list(model, layer_type):
     return [layer for layer in model.layers if get_type(layer) in layer_type]

@@ -185,10 +185,6 @@ def create(config, valid_split=0.05):
 
     y_train = y_train[..., np.newaxis]
     y_valid = y_valid[..., np.newaxis]
-    print('Train data shape:',  x_train.shape)
-    print('Train label shape:', y_train.shape)
-    print('Valid data shape:',   x_valid.shape)
-    print('Valid label shape:',  y_valid.shape)
 
     config.num_train = num_train
     config.num_valid = num_valid
@@ -197,5 +193,10 @@ def create(config, valid_split=0.05):
     config.batch_label_shape = (batch_size, img_size[0], img_size[1], 1)
     config.input_label_shape = (img_size[0], img_size[1], 1)
     config.data_augmentation = False
+
+    print('Train {} samples, batch shape: {}'.format(num_train, config.batch_data_shape))
+    print('Train {} labels, batch shape: {}'.format(num_train, config.batch_label_shape))
+    print('Valid {} samples, batch shape: {}'.format(num_valid, config.batch_data_shape))
+    print('Valid {} labels, batch shape: {}'.format(num_valid, config.batch_label_shape))
 
     return (x_train, y_train), (x_valid, y_valid)

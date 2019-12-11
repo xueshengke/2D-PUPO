@@ -11,4 +11,7 @@ def load(config):
     datasets = {
                 'mri_3t': mri_3t,
                 }
-    return datasets[config.dataset_name].create(config)
+    dataset_name = config.dataset_name
+    if dataset_name not in datasets.keys():
+        raise KeyError('No supported dataset preprocess for ' + dataset_name)
+    return datasets[dataset_name].create(config)

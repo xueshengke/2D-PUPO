@@ -6,18 +6,18 @@ from keras.models import Model
 from models.attention_modules import insert_attention_module
 from models.custom_layers import MaskChannel, PMask2D, IFFT2D
 import numpy as np, keras, tensorflow as tf
-from keras import backend as K
+
 
 def network(config):
     depth = config.depth
     num_classes = config.num_classes
     input_shape = config.input_data_shape
-    batch_shape = config.batch_data_shape
 
     # start model definition
-    num_filters = 16
+    model_arch = {'small': 16, 'medium': 32, 'large': 64}
+    num_filters = model_arch[config.arch_size]
 
-    input = Input(shape=input_shape, batch_shape=batch_shape, name='k_input')
+    input = Input(shape=input_shape, name='k_input')
 
     model = PMask2D(name='prob_mask', pre_mask=config.pre_mask)(input)
 

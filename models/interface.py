@@ -1,14 +1,12 @@
 from __future__ import print_function
-from keras.optimizers import SGD, Adam
 from keras.models import load_model, model_from_json, model_from_yaml
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping, TensorBoard, ReduceLROnPlateau, \
                             TerminateOnNaN
-from sources.loss_func import compute_psnr, PSNR, compute_ssim, SSIM, cross_domain_mse
-from sources.utils import var_step_decay, fix_step_decay, print_model
 from sources import compiler
-from models import resnet_v1, vdsr, custom_layers, decorator
 from models.custom_callbacks import BatchNormSparseRate, LogWriter, UpdateProbMask
 import os, sys, time, csv
+import sources.utils as util
+import decorator, info
 
 
 class ModelAdapter(object):
@@ -20,11 +18,8 @@ class ModelAdapter(object):
     def create_model(self):
         if self.config.restore_model:
             print('Restore pretrained model from ' + self.config.pre_model_path)
-            custom_objects = {'MaskChannel': custom_layers.MaskChannel,
-                              'PMask2D': custom_layers.PMask2D,
-                              'IFFT2D': custom_layers.IFFT2D,
-                              'PSNR': PSNR, 'SSIM': SSIM
-                              }
+
+            custom_objects = info.get_custom_objects(self.config)
             if self.config.pre_model_path.endswith('h5'):
                 model = load_model(self.config.pre_model_path, custom_objects=custom_objects)
             elif self.config.pre_model_path.endswith('json'):
@@ -36,19 +31,16 @@ class ModelAdapter(object):
                     model_yaml = f.read()
                 model = model_from_yaml(model_yaml, custom_objects=custom_objects)
 
-            if self.config.decorate_model:
+            if self.config.decorate:
                 decorate = decorator.ModelDecorator(model, self.config)
                 model = decorate.run()
             if self.config.pre_model_path.split('.')[-1] in ['h5']:
                 model.load_weights(self.config.pre_model_path, by_name=True)
         else:
             # create model definition
-            model_collection = {
-                                'vdsr': vdsr,
-                                }
-            model = model_collection[self.config.base_name].network(self.config)
+            model = info.get_model_objects(self.config)
 
-            if self.config.decorate_model:
+            if self.config.decorate:
                 decorate = decorator.ModelDecorator(model, self.config)
                 model = decorate.run()
 
@@ -86,7 +78,7 @@ class ModelAdapter(object):
         with open(model_yaml_file, 'w') as f:
             f.write(model_yaml)
         print('Saving model summary to ' + str(model_yaml_file))
-        print_model(model, model_report_dir, self.config)
+        util.print_model(model, model_report_dir, self.config)
 
     def initialize_callbacks(self, ckpt_save_path='', log_dir=''):
 
@@ -117,8 +109,8 @@ class ModelAdapter(object):
         early_stop = EarlyStopping(monitor=self.config.monitor_metric, patience=self.config.stop_patience, verbose=1,
                                    min_delta=1e-4, mode='max', restore_best_weights=True)
 
-        # lr_scheduler = LearningRateScheduler(var_step_decay)
-        lr_scheduler = LearningRateScheduler(fix_step_decay)
+        # lr_scheduler = LearningRateScheduler(util.var_step_decay)
+        lr_scheduler = LearningRateScheduler(util.fix_step_decay)
         lr_reducer = ReduceLROnPlateau(monitor=self.config.monitor_metric, factor=self.config.reduce_factor, cooldown=0,
                                        min_delta=1e-4, mode='max', patience=self.config.reduce_patience,
                                        min_lr=self.config.min_lr)

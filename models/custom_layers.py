@@ -132,7 +132,6 @@ class IFFT2D(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-
 class ProbMaskChannel(Layer):
     def __init__(self, **kwargs):
         super(ProbMaskChannel, self).__init__(**kwargs)
@@ -146,7 +145,7 @@ class ProbMaskChannel(Layer):
                                     # regularizer=l1_max_reg)   # gradually increase regularizer force
                                     # regularizer=neg_xlog)   # gradually increase regularizer force
                                     # regularizer=l1(1e-6))   # gradually increase regularizer force
-                                    regularizer=None)   # gradually increase regularizer force
+                                    regularizer=None)  # gradually increase regularizer force
         self.mask = self.add_weight(name='mask', trainable=False, shape=self.prob.shape, initializer='ones')
         # self.output_dim = input_shape
         super(ProbMaskChannel, self).build(input_shape)  # be sure you call this somewhere!
@@ -206,7 +205,7 @@ class MaskChannel(Layer):
 
 class MaxPoolingWithArgmax2D(Layer):
 
-    def __init__(self, pool_size=(2,2), strides=(2,2), padding='same', data_format=None, **kwargs):
+    def __init__(self, pool_size=(2, 2), strides=(2, 2), padding='same', data_format=None, **kwargs):
         self.padding = padding
         self.pool_size = pool_size
         self.strides = strides
@@ -375,7 +374,7 @@ class OnesZeros(keras.initializers.Initializer):
     def __init__(self, num=None):
         self.num = num
 
-    def __call__(self, shape,  dtype=None):
+    def __call__(self, shape, dtype=None):
         if self.num is None:
             self.num = [0, 0]
             from operator import mul
@@ -402,9 +401,9 @@ class ReduceChannel(Layer):
 
     def call(self, x):
         mask_vec = K.flatten(self.mask)
-        valid_idx = K.flatten(tf.where(K.not_equal(mask_vec, 0)))   # find valid index in mask
-        y = tf.gather(x, valid_idx, axis=-1)    # select valid channel from input
-        z = y * tf.gather(self.mask, valid_idx, axis=-1)    # multiply valid value in mask
+        valid_idx = K.flatten(tf.where(K.not_equal(mask_vec, 0)))  # find valid index in mask
+        y = tf.gather(x, valid_idx, axis=-1)  # select valid channel from input
+        z = y * tf.gather(self.mask, valid_idx, axis=-1)  # multiply valid value in mask
         return z
 
     def get_output_shape_for(self, input_shape):
@@ -436,13 +435,13 @@ class ExpandChannel(Layer):
 
     def call(self, x):
         mask_vec = K.flatten(self.mask)
-        valid_idx = K.flatten(tf.where(K.not_equal(mask_vec, 0)))   # find valid index in mask
-        zero_idx = K.flatten(tf.where(K.equal(mask_vec, 0)))    # find invalid index in mask
-        y = x * tf.gather(self.mask, valid_idx, axis=-1)    # multiply valid value in mask
+        valid_idx = K.flatten(tf.where(K.not_equal(mask_vec, 0)))  # find valid index in mask
+        zero_idx = K.flatten(tf.where(K.equal(mask_vec, 0)))  # find invalid index in mask
+        y = x * tf.gather(self.mask, valid_idx, axis=-1)  # multiply valid value in mask
         indices = [tf.cast(valid_idx, 'int32'), tf.cast(zero_idx, 'int32')]
         data = [K.arange(self.in_c), K.constant(-1, shape=(self.out_c - self.in_c,), dtype='int32')]
-        expand_idx = tf.dynamic_stitch(indices, data)   # create expand index using valid index
-        z = tf.gather(y, expand_idx, axis=-1)   # expand input into new channel
+        expand_idx = tf.dynamic_stitch(indices, data)  # create expand index using valid index
+        z = tf.gather(y, expand_idx, axis=-1)  # expand input into new channel
         return z
 
     def get_output_shape_for(self, input_shape):

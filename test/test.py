@@ -2,12 +2,14 @@ from __future__ import print_function
 import os, sys, argparse, time
 from skimage import io, transform
 from numpy.fft import fft2, ifft2, fftshift, ifftshift
-from models import custom_layers
-from sources.loss_func import PSNR, SSIM, cross_domain_mse, compute_psnr, compute_ssim
+from models import info
+from sources.utils import useGPU, normalize
+import sources.loss_func as custom_losses
 import tensorflow as tf, numpy as np, keras
 import keras.backend.tensorflow_backend as KTF
 import pydicom
 import matplotlib as mpl
+
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -44,6 +46,7 @@ default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.239
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.8021.h5'
 mask_path = ''
 
+
 # Poisson mask
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0015_rec_PSNR33.4249.h5'
 # mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.037_rate0.1019.png' # 10%
@@ -55,38 +58,6 @@ mask_path = ''
 # mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.015_rate0.3916.png' # 40%
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.0380.h5'
 # mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.0124_rate0.5032.png' # 50%
-
-custom_objects = {'MaskChannel': custom_layers.MaskChannel,
-                  'PMask2D': custom_layers.PMask2D,
-                  'IFFT2D': custom_layers.IFFT2D,
-                  'PSNR': PSNR,
-                  'SSIM': SSIM,
-                  'PSNR_Loss': PSNR,
-                  'SSIM_Loss': SSIM,
-                  'cross_domain_mse': cross_domain_mse
-                  }
-
-def normalize(x, min_val=None, max_val=None):
-    if min_val is None: min_val = np.min(x)
-    if max_val is None: max_val = np.max(x)
-    x = 1.0 * (x - min_val) / (max_val - min_val)
-    x[x > 1] = 1.
-    x[x < 0] = 0.
-    return x
-
-
-def useGPU(gpu_id):
-    pid = os.getpid()
-    if not gpu_id:
-        print('Use CPU, PID: {}'.format(pid))
-    else:
-        print('Use GPU: {}, PID: {}'.format(gpu_id, pid))
-    # only use limited GPU memory
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    KTF.set_session(sess)
 
 
 def load_testdata(data_path, num=None):
@@ -133,10 +104,18 @@ def load_testdata(data_path, num=None):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', default='2', type=str, help='Use GPU, e.g., --gpu=0,1,2...')
-    parser.add_argument('--dataset', default=None, type=str, help='path of test dataset')
-    parser.add_argument('--test_num', default=None, type=int, help='number of images to be tested')
-    parser.add_argument('--model', default=None, type=str, help='path of test model')
+    parser.add_argument('--gpu', default='2',
+                        type=str,
+                        help='Use GPU, e.g., --gpu=0,1,2...')
+    parser.add_argument('--dataset', default=None,
+                        type=str,
+                        help='path of test dataset')
+    parser.add_argument('--test_num', default=None,
+                        type=int,
+                        help='number of images to be tested')
+    parser.add_argument('--model', default=None,
+                        type=str,
+                        help='path of test model')
     opts = parser.parse_args()
     data_path = opts.dataset
     number = opts.test_num
@@ -157,7 +136,7 @@ if __name__ == '__main__':
     # test by using keras model (.h5 file)
     if model_path.endswith('h5'):
         print('Restore pretrained Keras model from ' + model_path)
-        model = keras.models.load_model(model_path, custom_objects=custom_objects)
+        model = keras.models.load_model(model_path, custom_objects=info.get_custom_objects())
 
         # load mask
         if os.path.exists(mask_path):
@@ -201,8 +180,8 @@ if __name__ == '__main__':
     prob_mask = np.squeeze(model.get_layer('prob_mask').get_weights()[0])
     ift_out, rec_out = np.squeeze(pred[0]), np.squeeze(pred[1])
     gnd = np.squeeze(y_test)
-    ift_psnr, ift_ssim = compute_psnr(ift_out, gnd), compute_ssim(ift_out, gnd)
-    rec_psnr, rec_ssim = compute_psnr(rec_out, gnd), compute_ssim(rec_out, gnd)
+    ift_psnr, ift_ssim = custom_losses.compute_psnr(ift_out, gnd), custom_losses.compute_ssim(ift_out, gnd)
+    rec_psnr, rec_ssim = custom_losses.compute_psnr(rec_out, gnd), custom_losses.compute_ssim(rec_out, gnd)
     print('ift_PSNR: {:.4f}, ift_SSIM: {:.4f}'.format(ift_psnr, ift_ssim))
     print('rec_PSNR: {:.4f}, rec_SSIM: {:.4f}'.format(rec_psnr, rec_ssim))
     for i in range(number):

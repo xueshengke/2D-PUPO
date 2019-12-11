@@ -1,6 +1,6 @@
 from __future__ import print_function
 import keras, tensorflow as tf
-from keras.layers import Dense, Conv2D, BatchNormalization, Activation, PReLU
+from keras.layers import Dense, Conv2D, Conv2DTranspose, DepthwiseConv2D, BatchNormalization, Activation, PReLU
 from keras.layers import AveragePooling2D, Input, Flatten, Add, multiply, Concatenate, MaxPooling2D, SpatialDropout2D
 from keras.models import Model
 from keras.regularizers import l1, l2
@@ -50,6 +50,7 @@ class ModelDecorator(object):
         self.id_expand = 0
         self.set_layer = {'Conv2D': self.set_conv,
                           'Conv2DTranspose': self.set_conv,
+                          'DepthwiseConv2D': self.set_conv,
                           'BatchNormalization': self.set_batchnorm,
                           'Activation': self.set_activation,
                           'MaxPooling2D': self.set_pool,
@@ -227,6 +228,7 @@ class ModelDecorator(object):
                      name=name)
 
     def set_conv(self, layer, x):
+        layer_type = get_type(layer)
         filters = layer.filters
         if self.config.final:
             try:
@@ -256,12 +258,39 @@ class ModelDecorator(object):
         trainable = layer.trainable
         name = layer.name
 
-        conv = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
-                      data_format=data_format, dilation_rate=dilation_rate, activation=activation, use_bias=use_bias,
-                      kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
-                      kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
-                      activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-                      bias_constraint=bias_constraint, trainable=trainable, name=name)
+        output_padding = layer.output_padding if layer_type == 'Conv2DTranspose' else None
+        depth_multiplier = layer.depth_multiplier if layer_type == 'DepthwiseConv2D' else None
+        depthwise_initializer = layer.depthwise_initializer if layer_type == 'DepthwiseConv2D' else None
+        depthwise_regularizer = layer.depthwise_regularizer if layer_type == 'DepthwiseConv2D' else None
+        depthwise_constraint = layer.depthwise_constraint if layer_type == 'DepthwiseConv2D' else None
+
+        if layer_type == 'Conv2D':
+            conv = Conv2D(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
+                          data_format=data_format, dilation_rate=dilation_rate, activation=activation,
+                          use_bias=use_bias,
+                          kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+                          kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+                          activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+                          bias_constraint=bias_constraint, trainable=trainable, name=name)
+        elif layer_type == 'Conv2DTranspose':
+            conv = Conv2DTranspose(filters=filters, kernel_size=kernel_size, strides=strides, padding=padding,
+                                   output_padding=output_padding, data_format=data_format, dilation_rate=dilation_rate,
+                                   activation=activation, use_bias=use_bias,
+                                   kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+                                   kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+                                   activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+                                   bias_constraint=bias_constraint, trainable=trainable, name=name)
+        elif layer_type == 'DepthwiseConv2D':
+            conv = DepthwiseConv2D(kernel_size=kernel_size, strides=strides, padding=padding,
+                                   data_format=data_format, dilation_rate=dilation_rate,
+                                   activation=activation, use_bias=use_bias, depth_multiplier=depth_multiplier,
+                                   depthwise_initializer=depthwise_initializer, bias_initializer=bias_initializer,
+                                   depthwise_regularizer=depthwise_regularizer, bias_regularizer=bias_regularizer,
+                                   activity_regularizer=activity_regularizer, depthwise_constraint=depthwise_constraint,
+                                   bias_constraint=bias_constraint, trainable=trainable, name=name)
+        else:
+            raise TypeError('Unsupported layer type ' + layer_type)
+
         x = conv(x)
         if self.config.use_bn and 'BatchNormalization' not in self.__get_org_next_type(layer.output):
             x = self.insert_batchnorm(x)
@@ -335,7 +364,7 @@ class ModelDecorator(object):
         name = layer.name
 
         prelu = PReLU(alpha_initializer=alpha_initializer, alpha_regularizer=alpha_regularizer,
-                     alpha_constraint=alpha_constraint, shared_axes=shared_axes, trainable=trainable, name=name)
+                      alpha_constraint=alpha_constraint, shared_axes=shared_axes, trainable=trainable, name=name)
         x = prelu(x)
         return x
 
@@ -349,10 +378,10 @@ class ModelDecorator(object):
 
         if get_type(layer) == 'MaxPooling2D':
             pool = MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding, data_format=data_format,
-                             trainable=trainable, name=name)
+                                trainable=trainable, name=name)
         elif get_type(layer) == 'AveragePooling2D':
             pool = AveragePooling2D(pool_size=pool_size, strides=strides, padding=padding, data_format=data_format,
-                                 trainable=trainable, name=name)
+                                    trainable=trainable, name=name)
         elif get_type(layer) == 'MaxPoolingWithArgmax2D':
             pool = MaxPoolingWithArgmax2D(pool_size=pool_size, strides=strides, padding=padding,
                                           data_format=data_format, trainable=trainable, name=name)
@@ -383,6 +412,7 @@ class ModelDecorator(object):
     def set_dense(self, layer, x):
         units = layer.units
         activation = layer.output.op.type.lower()
+        if activation == 'biasadd': activation = None
         use_bias = layer.use_bias
         kernel_initializer = layer.kernel_initializer
         bias_initializer = layer.bias_initializer
@@ -395,10 +425,10 @@ class ModelDecorator(object):
         name = layer.name
 
         dense = Dense(units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
-                     bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,
-                     bias_regularizer=bias_regularizer, activity_regularizer=activity_regularizer,
-                     kernel_constraint=kernel_constraint, bias_constraint=bias_constraint, trainable=trainable,
-                     name=name)
+                      bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,
+                      bias_regularizer=bias_regularizer, activity_regularizer=activity_regularizer,
+                      kernel_constraint=kernel_constraint, bias_constraint=bias_constraint, trainable=trainable,
+                      name=name)
         x = dense(x)
         return x
 
@@ -465,7 +495,7 @@ class ModelDecorator(object):
                 self.append_list(self.input_nodes, node)
                 self.append_list(self.output_nodes, node)
 
-            elif get_type(org_layers[i]) in ['Conv2D', 'Conv2DTranspose']:
+            elif get_type(org_layers[i]) in ['Conv2D', 'Conv2DTranspose', 'DepthwiseConv2D']:
                 new_layer = self.set_layer[get_type(org_layers[i])]
                 org_input_node = org_layers[i].input
                 input_node = self.__get_input_node(org_input_node)
