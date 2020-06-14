@@ -17,16 +17,16 @@ import matplotlib.pyplot as plt
 batch_size = 30
 default_number = 10
 # mean_pixel_file = '/host/xueshengke/code/channel_prune-keras/test/mean_pixel.npy'
-default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/CAO_SHU_ZE'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/JIANG_YU_CHUN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/JIAO_FANG_AN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/MA_GUI_HONG'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/QI_FENG_ZHEN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/SONG_HONG_TAO'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/WANG_AI_LING'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/WANG_CHANG_YUAN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/YANG_BAO_SHENG'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/ZHAO_GUI_FANG'
+default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/CAO_SHU_ZE'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/JIANG_YU_CHUN'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/JIAO_FANG_AN'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/MA_GUI_HONG'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/QI_FENG_ZHEN'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/SONG_HONG_TAO'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/WANG_AI_LING'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/WANG_CHANG_YUAN'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/YANG_BAO_SHENG'
+# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/ZHAO_GUI_FANG'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0154_ift_PSNR_Loss25.0649.h5'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0007_ift_PSNR_Loss34.8355.h5'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0010_ift_PSNR_Loss32.4259.h5'
@@ -37,7 +37,7 @@ default_data_path = '/home/xiaobingt/xueshengke/dataset/3T/CAO_SHU_ZE'
 # 10%
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0010_rec_PSNR35.2568.h5'
 # 20%
-default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.2398.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.2398.h5'
 # 30%
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.4101.h5'
 # 40%
@@ -46,6 +46,9 @@ default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.239
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.8021.h5'
 mask_path = ''
 
+
+# 50% trained by MICCAI 2013
+default_model_path = '../results/vdsr-10/validate/vdsr-10_loss0.0000_rec_PSNR57.5554.h5'
 
 # Poisson mask
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0015_rec_PSNR33.4249.h5'
@@ -105,17 +108,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', default='2',
-                        type=str,
-                        help='Use GPU, e.g., --gpu=0,1,2...')
+                        type=str, help='Use GPU, e.g., --gpu=0,1,2...')
     parser.add_argument('--dataset', default=None,
-                        type=str,
-                        help='path of test dataset')
+                        type=str, help='path of test dataset')
     parser.add_argument('--test_num', default=None,
-                        type=int,
-                        help='number of images to be tested')
+                        type=int, help='number of images to be tested')
     parser.add_argument('--model', default=None,
-                        type=str,
-                        help='path of test model')
+                        type=str, help='path of test model')
     opts = parser.parse_args()
     data_path = opts.dataset
     number = opts.test_num
@@ -126,6 +125,7 @@ if __name__ == '__main__':
     if number is None: number = default_number
     if data_path is None: data_path = default_data_path
     if model_path is None: model_path = default_model_path
+
     figure_dir = os.path.join(os.getcwd(), os.path.split(model_path)[-1][:-3])
     if not os.path.isdir(figure_dir):
         os.makedirs(figure_dir)
@@ -230,6 +230,7 @@ if __name__ == '__main__':
         plt.show(block=False)
         plt.pause(0.01)
 
+    # compute the running time
     time_end = time.time()
     print('Test end time: ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     elapsed_time = time_end - time_begin

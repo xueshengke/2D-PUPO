@@ -1,0 +1,15 @@
+{
+  "base": {
+    "dataset_path": "/home/xiaobingt/xueshengke/dataset/MICCAI2013",
+    "num_classes": 1,
+    "data_dim": "256, 256, 1",
+    "data_format": "channels_last",
+    "data_augmentation": false,
+    "subtract_pixel_mean": false,
+    "use_generator": true,
+    "dataset_url": "",
+    "batch_size": 16,
+    "num_train": 50,
+    "num_valid": 5
+  }
+}
