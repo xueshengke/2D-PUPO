@@ -4,7 +4,7 @@ from keras.layers import AveragePooling2D, Input, Flatten, Add, multiply, Concat
 from keras.regularizers import l1, l2
 from keras.models import Model
 from models.attention_modules import insert_attention_module
-from models.custom_layers import MaskChannel, PMask2D, IFFT2D
+from models.custom_layers import MaskChannel, PMask2D, IFFT2D, PMask1DH, PMask1DV
 import numpy as np, keras, tensorflow as tf
 
 
@@ -20,6 +20,8 @@ def network(config):
     input = Input(shape=input_shape, name='k_input')
 
     model = PMask2D(name='prob_mask', pre_mask=config.pre_mask)(input)
+    # model = PMask1DH(name='prob_mask', pre_mask=config.pre_mask)(input)
+    # model = PMask1DV(name='prob_mask', pre_mask=config.pre_mask)(input)
 
     model = IFFT2D(name='ift')(model)
 
@@ -33,7 +35,7 @@ def network(config):
                        kernel_regularizer=l2(1e-6), bias_regularizer=l2(1e-6))(model)
         model = Activation('relu')(model)
 
-    model = Conv2D(num_classes, kernel_size=1, strides=1, padding='same', use_bias=False,
+    model = Conv2D(filters=1, kernel_size=1, strides=1, padding='same', use_bias=False,
                    kernel_initializer='he_normal', kernel_regularizer=l2(1e-6))(model)
     residual = model
 

@@ -1,32 +1,22 @@
 from __future__ import print_function
 import os, sys, argparse, time
-from skimage import io, transform
+
+os.sys.path.append('..')
 from numpy.fft import fft2, ifft2, fftshift, ifftshift
 from models import info
 from sources.utils import useGPU, normalize
+from sources import config_parser
+from datasets import prepare
 import sources.loss_func as custom_losses
 import tensorflow as tf, numpy as np, keras
 import keras.backend.tensorflow_backend as KTF
 import pydicom
+import cv2
 import matplotlib as mpl
 
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-# subtract_pixel_mean = False
-batch_size = 30
-default_number = 10
-# mean_pixel_file = '/host/xueshengke/code/channel_prune-keras/test/mean_pixel.npy'
-default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/CAO_SHU_ZE'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/JIANG_YU_CHUN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/JIAO_FANG_AN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/MA_GUI_HONG'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/QI_FENG_ZHEN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/SONG_HONG_TAO'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/WANG_AI_LING'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/WANG_CHANG_YUAN'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/YANG_BAO_SHENG'
-# default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/ZHAO_GUI_FANG'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0154_ift_PSNR_Loss25.0649.h5'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0007_ift_PSNR_Loss34.8355.h5'
 # default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0010_ift_PSNR_Loss32.4259.h5'
@@ -44,9 +34,9 @@ default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/CAO_SHU_ZE'
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR41.9716.h5'
 # 50%
 # default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.8021.h5'
-mask_path = ''
+pre_mask_path = ''
 
-
+default_dataset = 'MICCAI_2013'
 # 50% trained by MICCAI 2013
 default_model_path = '../results/vdsr-10/validate/vdsr-10_loss0.0000_rec_PSNR57.5554.h5'
 
@@ -63,45 +53,20 @@ default_model_path = '../results/vdsr-10/validate/vdsr-10_loss0.0000_rec_PSNR57.
 # mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.0124_rate0.5032.png' # 50%
 
 
-def load_testdata(data_path, num=None):
-    # obtain number and filename of test images
-    if num is None:
-        file_list = os.listdir(data_path)
-    else:
-        file_list = os.listdir(data_path)[:num]
-    image_list = []
-    for img_name in file_list:
-        image_list.append(os.path.join(data_path, img_name))
-    num_image = len(image_list)
-    print('Test %d images' % num_image)
+def handle_args(config, args):
+    args_dict = {}
+    for item in args:
+        key, value = item.lstrip('-').split('=')
+        try:
+            value = eval(value)
+        except:
+            pass
+        args_dict[key] = value
 
-    img_size = [256, 256]
-    x_test = np.zeros(shape=[num_image] + img_size + [2])
-    y_test = np.zeros(shape=[num_image] + img_size + [1])
-    for i in range(num_image):
-        ima = pydicom.dcmread(image_list[i])
-        img = (ima.pixel_array).astype('float32')
-        y_test[i, ...] = img[..., np.newaxis]
-        print('Read %d / %d: %s' % (i + 1, num_image, image_list[i]))
-    y_test = normalize(y_test.astype('float'))
-
-    # # if subtract pixel mean is enabled
-    # if subtract_pixel_mean:
-    #     if os.path.exists(mean_pixel_file):
-    #         print('Load mean pixel from ' + mean_pixel_file)
-    #         mean_pixel = np.load(mean_pixel_file)
-    #     else:
-    #         mean_pixel = np.mean(y_test, axis=0)
-    #     y_test -= mean_pixel
-
-    for i in range(num_image):
-        # img_f = fft2(np.squeeze(y_train[i, ...]))
-        img_f = fftshift(fft2(np.squeeze(y_test[i, ...])))
-        x_test[i, ..., 0] = np.real(img_f)
-        x_test[i, ..., 1] = np.imag(img_f)
-
-    print('Test_data shape:', x_test.shape)
-    return x_test, y_test
+    for key, value in args_dict.items():
+        if getattr(config, key, None):
+            setattr(config, key, value)
+    return config
 
 
 if __name__ == '__main__':
@@ -111,50 +76,66 @@ if __name__ == '__main__':
                         type=str, help='Use GPU, e.g., --gpu=0,1,2...')
     parser.add_argument('--dataset', default=None,
                         type=str, help='path of test dataset')
-    parser.add_argument('--test_num', default=None,
-                        type=int, help='number of images to be tested')
-    parser.add_argument('--model', default=None,
-                        type=str, help='path of test model')
-    opts = parser.parse_args()
-    data_path = opts.dataset
-    number = opts.test_num
-    model_path = opts.model
+    parser.add_argument('--model_path', default=None,
+                        type=str, help='path of test model (.h5 or .pb)')
+    known_args, unknown_args = parser.parse_known_args()
+    if len(unknown_args):
+        print('WARNING: extra arguments: {}. Use "python test.py --help" for details'.format(unknown_args))
+    # data_path = known_args.dataset.lower()
+    # model_path = known_args.model
 
-    useGPU(opts.gpu)  # '0,1,2,3'
+    if known_args.dataset is None: known_args.dataset = default_dataset.lower()
+    if known_args.model_path is None: known_args.model_path = default_model_path
 
-    if number is None: number = default_number
-    if data_path is None: data_path = default_data_path
-    if model_path is None: model_path = default_model_path
+    # use GPU if available, multi-GPU training dest not work now
+    sess = useGPU(known_args.gpu)  # '0,1,2,3'
 
-    figure_dir = os.path.join(os.getcwd(), os.path.split(model_path)[-1][:-3])
+    # if number is None: number = default_number
+    # if data_path is None: data_path = default_data_path
+    # if model_path is None: model_path = default_model_path
+
+    config_dataset_file = os.path.join('datasets', known_args.dataset + '.json')
+    config = config_parser.LoadConfig(known_args, sess)
+    config = config.load_dataset_config(config_dataset_file)
+
+    config = handle_args(config, unknown_args)
+
+    figure_dir = os.path.join(os.getcwd(), os.path.split(config.model_path)[-1][:-3])
     if not os.path.isdir(figure_dir):
         os.makedirs(figure_dir)
 
-    # load test images from path, choose number of images to test
-    x_test, y_test = load_testdata(data_path, number)
+    # # load test images from path, choose number of images to test
+    train_set, valid_set = prepare.load(config)
 
     # test by using keras model (.h5 file)
-    if model_path.endswith('h5'):
-        print('Restore pretrained Keras model from ' + model_path)
-        model = keras.models.load_model(model_path, custom_objects=info.get_custom_objects())
+    if config.model_path.endswith('h5'):
+        print('Restore pretrained Keras model from ' + config.model_path)
+        model = keras.models.load_model(config.model_path, custom_objects=info.get_custom_objects())
 
         # load mask
-        if os.path.exists(mask_path):
-            print('Load mask from ' + mask_path)
-            pre_mask = io.imread(mask_path)
-            pre_mask = transform.resize(pre_mask, [256, 256])
+        if os.path.exists(pre_mask_path):
+            print('Load mask from ' + pre_mask_path)
+            pre_mask = cv2.imread(pre_mask_path)
+            pre_mask = cv2.resize(pre_mask, [256, 256], interpolation=cv2.INTER_NEAREST)
             pre_mask = normalize(pre_mask.astype('float32'))
             pre_mask = np.reshape(pre_mask, [1, 256, 256, 1])
             model.get_layer('prob_mask').set_weights([pre_mask, pre_mask])
 
         time_begin = time.time()
         print('Test started time: ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        pred = model.predict(x_test, batch_size=batch_size, verbose=1)
+
+        if config.use_generator:
+            steps = max(1, config.num_valid * 264 / config.batch_size)
+            pred = model.predict_generator(valid_set, steps=steps, workers=1, use_multiprocessing=False, verbose=1)
+        else:
+            pred = model.predict(valid_set[0], batch_size=config.batch_size, verbose=1)
+
+        # pred = model.predict(x_test, batch_size=batch_size, verbose=1)
 
     # test by using tensorflow model (.pb file)
-    elif model_path.endswith('pb'):
-        print('Restore pretrained Pb model from ' + model_path)
-        with tf.gfile.FastGFile(model_path, 'rb') as f:
+    elif config.model_path.endswith('pb'):
+        print('Restore pretrained Pb model from ' + config.model_path)
+        with tf.gfile.FastGFile(config.model_path, 'rb') as f:
             graph_def = tf.GraphDef()
             graph_def.ParseFromString(f.read())
             tf.import_graph_def(graph_def, name='')
@@ -171,20 +152,20 @@ if __name__ == '__main__':
 
             time_begin = time.time()
             print('Test started time: ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            pred = sess.run(output, {input_tensor: x_test})
+            pred = sess.run(output, {input_tensor: valid_set[0]})
 
     # pred_cls = np.argmax(pred, axis=1)
     # print('Predict: ' + str(pred))
     # print('Class: ' + str(pred_cls))
-    real, imag = np.tanh(x_test[..., 0]), np.tanh(x_test[..., 1])
+    real, imag = np.tanh(valid_set[0][..., 0]), np.tanh(valid_set[0][..., 1])
     prob_mask = np.squeeze(model.get_layer('prob_mask').get_weights()[0])
     ift_out, rec_out = np.squeeze(pred[0]), np.squeeze(pred[1])
-    gnd = np.squeeze(y_test)
+    gnd = np.squeeze(valid_set[1])
     ift_psnr, ift_ssim = custom_losses.compute_psnr(ift_out, gnd), custom_losses.compute_ssim(ift_out, gnd)
     rec_psnr, rec_ssim = custom_losses.compute_psnr(rec_out, gnd), custom_losses.compute_ssim(rec_out, gnd)
     print('ift_PSNR: {:.4f}, ift_SSIM: {:.4f}'.format(ift_psnr, ift_ssim))
     print('rec_PSNR: {:.4f}, rec_SSIM: {:.4f}'.format(rec_psnr, rec_ssim))
-    for i in range(number):
+    for i in range(config.num_valid):
         plt.figure(figsize=(12, 8), dpi=100)
         plt.subplot(3, 3, 1)
         fig_obj = plt.imshow(real[i, ...], cmap=plt.get_cmap('jet'))
@@ -234,5 +215,6 @@ if __name__ == '__main__':
     time_end = time.time()
     print('Test end time: ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     elapsed_time = time_end - time_begin
-    print('Test total time: {} s / {} samples = {} s/sample'.format(elapsed_time, number, 1.0 * elapsed_time / number))
+    print('Test total time: {} s / {} samples = {} s/sample'.format(elapsed_time, config.num_valid,
+                                                                    1.0 * elapsed_time / config.num_valid))
     print('Done')

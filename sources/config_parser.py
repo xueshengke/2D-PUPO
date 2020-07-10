@@ -6,15 +6,15 @@ class LoadConfig(object):
         Initialize the LoadConfig class from report config file.
     """
 
-    def __init__(self, args):
+    def __init__(self, args, session=None):
 
-        self.gpu = args.gpu
-        self.run = args.run
-        self.dataset_name = args.data
-        self.base_name = args.model
+        for key, value in args.__dict__.items():
+            setattr(self, key, value)
+        setattr(self, 'base_name', (getattr(self, 'model', None)))
+        self.session = session
         self.root_dir = os.getcwd()
 
-    def load_data_config(self, config_data_file):
+    def load_dataset_config(self, config_data_file):
         json_cfg = json.load(open(config_data_file))
         # locals().update(json_cfg)
         tuple_cfg = self.walk(json_cfg)
@@ -57,3 +57,10 @@ class LoadConfig(object):
                     yield inkey, invalue
             else:
                 yield key, value
+
+    def serialize(self):
+        print('-------- Configuration --------')
+        settings = self.__dict__
+        for key, value in sorted(settings.items(), key=lambda item: item[0]):
+            print('{}: {},'.format(key, value))
+        print('-------- Configuration --------')

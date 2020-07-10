@@ -1,20 +1,20 @@
 from __future__ import print_function
 import os, sys, argparse, time
-from skimage import io, transform
 from numpy.fft import fft2, ifft2, fftshift, ifftshift
 from models import info
-from sources.utils import useGPU, normalize
+from sources.utils import useGPU, normalize, binomial
 import sources.loss_func as custom_losses
 import tensorflow as tf, numpy as np, keras
 import keras.backend.tensorflow_backend as KTF
 import pydicom
+import cv2
 import matplotlib as mpl
 
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 # subtract_pixel_mean = False
-batch_size = 30
+batch_size = 32
 default_number = 10
 # mean_pixel_file = '/host/xueshengke/code/channel_prune-keras/test/mean_pixel.npy'
 default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/CAO_SHU_ZE'
@@ -27,41 +27,123 @@ default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/CAO_SHU_ZE'
 # default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/WANG_CHANG_YUAN'
 # default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/YANG_BAO_SHENG'
 # default_data_path = '/home/xiaobingt/xueshengke/dataset/MRI_3T/ZHAO_GUI_FANG'
-# default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0154_ift_PSNR_Loss25.0649.h5'
-# default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0007_ift_PSNR_Loss34.8355.h5'
-# default_model_path = '../results/vdsr-5/train/vdsr-5_loss0.0010_ift_PSNR_Loss32.4259.h5'
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0135_rec_PSNR33.5832.h5'
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0020_rec_PSNR36.0713.h5'
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0020_rec_PSNR36.0713.h5'
-# prob mask
+
+# prob mask 2D
 # 10%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0010_rec_PSNR35.2568.h5'
+# default_model_path = '../results/VDSR-10/train/VDSR-10_loss0.0010_rec_PSNR35.2568.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0011_rec_PSNR34.7963.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0011_rec_PSNR35.1835.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0007_rec_PSNR37.3475.h5'
+# without CNN
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0004_rec_PSNR34.3845.h5'
+
 # 20%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.2398.h5'
+# default_model_path = '../results/VDSR-10/train/VDSR-10_loss0.0005_rec_PSNR38.2398.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0006_rec_PSNR37.5875.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR39.0201.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0006_rec_PSNR37.5765.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR37.9600.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR41.1499.h5'
+# without CNN
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0002_rec_PSNR38.2555.h5'
 # 30%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.4101.h5'
+# default_model_path = '../results/VDSR-10/train/VDSR-10_loss0.0003_rec_PSNR40.4101.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR39.6726.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR44.2498.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.1312.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR39.7325.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0020_rec_PSNR38.9621.h5'
+# without CNN
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0001_rec_PSNR40.6623.h5'
 # 40%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR41.9716.h5'
+# default_model_path = '../results/VDSR-10/train/VDSR-10_loss0.0002_rec_PSNR41.9716.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR42.2980.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR42.6704.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.0704.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.8516.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0001_rec_PSNR45.1496.h5'
+# without CNN
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0001_rec_PSNR41.1687.h5'
 # 50%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.8021.h5'
-mask_path = ''
+# default_model_path = '../results/VDSR-10/train/VDSR-10_loss0.0003_rec_PSNR42.8021.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR43.2117.h5'
+# default_model_path = '../results/vdsr-10/validate/vdsr-10_loss0.0000_rec_PSNR48.2827.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR42.0425.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0001_rec_PSNR45.9248.h5'
+# without CNN
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0001_rec_PSNR41.7882.h5'
 
+# ----------------------------------------------------------------------------------- #
+# prob mask 2D, min_prob = rate / np.sqrt(2*np.pi) with CNN
+# 10%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0008_rec_PSNR36.3136.h5'
+# 20%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR39.8669.h5'
+# 30%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR43.4660.h5'
+# 40%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0001_rec_PSNR44.8748.h5'
+# 50%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR45.1631.h5'
+# prob mask 2D, min_prob = rate / np.sqrt(2*np.pi) without CNN
+# 10%
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0005_rec_PSNR32.8021.h5'
+# 20%
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0002_rec_PSNR36.9811.h5'
+# 30%
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0001_rec_PSNR39.0599.h5'
+# 40%
+# default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0001_rec_PSNR41.0662.h5'
+# 50%
+default_model_path = '../results/vdsr-1/train/vdsr-1_loss0.0000_rec_PSNR44.5473.h5'
+# ----------------------------------------------------------------------------------- #
 
-# 50% trained by MICCAI 2013
-default_model_path = '../results/vdsr-10/validate/vdsr-10_loss0.0000_rec_PSNR57.5554.h5'
+# prob mask 1DH
+# 10%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0028_rec_PSNR30.2656.h5'
+# 20%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0014_rec_PSNR33.2355.h5'
+# 30%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0007_rec_PSNR36.2398.h5'
+# 40%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR38.7238.h5'
+# 50%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.4952.h5'
 
-# Poisson mask
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0015_rec_PSNR33.4249.h5'
-# mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.037_rate0.1019.png' # 10%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0008_rec_PSNR36.4106.h5'
-# mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.024_rate0.1988.png' # 20%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.8683.h5'
-# mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.018_rate0.3025.png' # 30%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.5833.h5'
-# mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.015_rate0.3916.png' # 40%
-# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0005_rec_PSNR38.0380.h5'
-# mask_path = '/home/xiaobingt/xueshengke/dataset/masks/VD_poisson_disc_0.0124_rate0.5032.png' # 50%
+# prob mask 1DV
+# 10%
+# default_model_path = ''
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0022_rec_PSNR31.0192.h5'
+# 20%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0043_rec_PSNR31.3154.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0036_rec_PSNR29.5180.h5'
+# 30%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0008_rec_PSNR35.9087.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0013_rec_PSNR34.6730.h5'
+# 40%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR38.6733.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0010_rec_PSNR35.9531.h5'
+# 50%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0003_rec_PSNR40.3127.h5'
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0006_rec_PSNR37.8684.h5'
 
+### Poisson mask
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0007_rec_PSNR36.9510.h5'
+# mask_path = '/home/xiaobingt/xueshengke/code/downsample/256x256/VD_poisson_disc_alpha0.0375_rate0.1000.png' # 10%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0004_rec_PSNR40.1345.h5' ???
+# mask_path = '/home/xiaobingt/xueshengke/code/downsample/256x256/VD_poisson_disc_alpha0.0239_rate0.2004.png' # 20%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR42.4419.h5'
+# mask_path = '/home/xiaobingt/xueshengke/code/downsample/256x256/VD_poisson_disc_alpha0.01813_rate0.3002.png' # 30%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.0002_rec_PSNR44.0003.h5'
+# mask_path = '/home/xiaobingt/xueshengke/code/downsample/256x256/VD_poisson_disc_alpha0.01475_rate0.4000.png' # 40%
+# default_model_path = '../results/vdsr-10/train/vdsr-10_loss0.4502_rec_PSNR46.6651.h5'
+# mask_path = '/home/xiaobingt/xueshengke/code/downsample/256x256/VD_poisson_disc_alpha0.01245_rate0.5008.png' # 50%
+
+pre_mask_path = ''
+
+# pre_mask_path = '/home/xiaobingt/xueshengke/code/downsample/mask_1D_center_vertival_line.png'
+# pre_mask_path = '/home/xiaobingt/xueshengke/code/downsample/mask_1D_center_horizontal_line.png'
+# pre_mask_path = '/home/xiaobingt/xueshengke/code/downsample/mask_1D_center_horz_vert_line.png'
 
 def load_testdata(data_path, num=None):
     # obtain number and filename of test images
@@ -139,10 +221,10 @@ if __name__ == '__main__':
         model = keras.models.load_model(model_path, custom_objects=info.get_custom_objects())
 
         # load mask
-        if os.path.exists(mask_path):
-            print('Load mask from ' + mask_path)
-            pre_mask = io.imread(mask_path)
-            pre_mask = transform.resize(pre_mask, [256, 256])
+        if os.path.exists(pre_mask_path):
+            print('Load mask from ' + pre_mask_path)
+            pre_mask = cv2.imread(pre_mask_path)
+            pre_mask = cv2.resize(pre_mask, [256, 256], interpolation=cv2.INTER_NEAREST)
             pre_mask = normalize(pre_mask.astype('float32'))
             pre_mask = np.reshape(pre_mask, [1, 256, 256, 1])
             model.get_layer('prob_mask').set_weights([pre_mask, pre_mask])
@@ -177,7 +259,37 @@ if __name__ == '__main__':
     # print('Predict: ' + str(pred))
     # print('Class: ' + str(pred_cls))
     real, imag = np.tanh(x_test[..., 0]), np.tanh(x_test[..., 1])
-    prob_mask = np.squeeze(model.get_layer('prob_mask').get_weights()[0])
+    prob = np.squeeze(model.get_layer('prob_mask').get_weights()[0], axis=(0, 3))
+    mask = binomial(prob)
+    np.savetxt(os.path.join(figure_dir, 'prob_2D.csv'), prob, delimiter=',')
+    np.savetxt(os.path.join(figure_dir, 'mask_2D.csv'), mask, delimiter=',')
+    plt.figure(figsize=(8, 8), dpi=100)
+    plt.title('Probability')
+    plt.subplot(2, 2, 1)
+    fig_obj = plt.imshow(np.broadcast_to(prob, [256, 256]), cmap=plt.get_cmap('jet'))
+    plt.colorbar(fig_obj)
+    plt.title('Probability (avg=%.4f)' % np.mean(prob))
+    plt.subplot(2, 2, 2)
+    fig_obj = plt.imshow(np.broadcast_to(mask, [256, 256]), cmap=plt.get_cmap('gray'))
+    plt.colorbar(fig_obj)
+    plt.title('Mask (%.2f%%)' % (100.0 * np.sum(mask) / mask.size))
+    plt.subplot(2, 2, 3)
+    fig_obj = plt.plot(prob)
+    plt.title('PDF')
+    # fig_obj = plt.plot(np.mean(prob, axis=0))
+    plt.grid(True)
+    # plt.title('PDF (Row)')
+    # plt.subplot(2, 2, 4)
+    # fig_obj = plt.plot(prob)
+    # fig_obj = plt.plot(np.mean(prob, axis=1))
+    # plt.grid(True)
+    # plt.title('PDF (Col)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(figure_dir, 'Parametric_mask.png'))
+    print('Saving figure at ' + os.path.join(figure_dir, 'Parametric_mask.png'))
+    plt.show(block=False)
+    plt.pause(0.01)
+
     ift_out, rec_out = np.squeeze(pred[0]), np.squeeze(pred[1])
     gnd = np.squeeze(y_test)
     ift_psnr, ift_ssim = custom_losses.compute_psnr(ift_out, gnd), custom_losses.compute_ssim(ift_out, gnd)
@@ -195,7 +307,7 @@ if __name__ == '__main__':
         plt.colorbar(fig_obj)
         plt.title('imag_' + str(i))
         plt.subplot(3, 3, 3)
-        fig_obj = plt.imshow(prob_mask, cmap=plt.get_cmap('gray'))
+        fig_obj = plt.imshow(np.broadcast_to(prob, [256, 256]), cmap=plt.get_cmap('gray'))
         plt.colorbar(fig_obj)
         plt.title('prob_mask')
         # -------------------

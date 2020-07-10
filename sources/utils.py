@@ -90,12 +90,16 @@ def l01_reg(w):
     return - 0.5 * K.mean(K.square(w - 0.5) - 0.25)
 
 
-def rate_reg(w, rate=0.10, coeff=1.0):
-    return coeff * 0.5 * K.square(K.mean(K.abs(w)) - rate)
+def rate_reg(rate=0.5, alpha=10.0):
+    def regularizer(x):
+        return alpha * 0.5 * K.square(K.mean(K.abs(x)) - rate)
+
+    return regularizer
 
 
-# def l01_reg(w, coeff=1e-2):
-#     return - coeff * 0.5 * (K.square(w) - 1)
+def symmetric_reg(w, alpha=10.0):
+    return alpha * 0.5 * K.mean(K.square(K.mean(w, axis=1) - K.mean(w, axis=2)))
+
 
 def np_sigmoid(x, a=1.):
     s = 1 / (1 + np.exp(-a * x))

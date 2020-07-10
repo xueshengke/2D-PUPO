@@ -4,6 +4,7 @@ from keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStoppin
                             TerminateOnNaN
 from sources import compiler
 from models.custom_callbacks import BatchNormSparseRate, LogWriter, UpdateProbMask
+from keras.utils import multi_gpu_model
 import os, sys, time, csv
 import sources.utils as util
 import decorator, info
@@ -49,6 +50,11 @@ class ModelAdapter(object):
                 # model.load_weights(self.config.pre_model_path, by_name=True)
                 model.load_weights(self.config.pre_model_path)
 
+        # if use multiple GPU training
+        # parallel_model = multi_gpu_model(model, gpus=4)
+        # model = None
+        # model = parallel_model
+
         # define loss, optimizer, and metric
         losses, loss_weights, optimizer, metrics, monitor = compiler.initialize(self.config)
         model.compile(loss=losses, loss_weights=loss_weights, optimizer=optimizer, metrics=metrics)
@@ -56,7 +62,7 @@ class ModelAdapter(object):
         self.config.record_metrics = ('loss', monitor[4:])
         self.model = model
 
-        return model
+        return self.model
 
     def serialize_model(self, model=None, model_report_dir=''):
         if model is None: model = self.model

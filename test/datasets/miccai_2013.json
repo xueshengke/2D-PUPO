@@ -6,10 +6,11 @@
     "data_format": "channels_last",
     "data_augmentation": false,
     "subtract_pixel_mean": false,
-    "use_generator": true,
+    "use_generator": false,
     "dataset_url": "",
-    "batch_size": 16,
-    "num_train": 50,
-    "num_valid": 5
+    "batch_size": 32,
+    "num_train": 1,
+    "num_valid": 1,
+    "group_size": 264
   }
 }

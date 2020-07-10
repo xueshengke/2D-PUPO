@@ -4,7 +4,7 @@ from keras import backend as K
 from keras.initializers import Ones, Zeros, Constant, RandomNormal, RandomUniform
 from keras.regularizers import l1, l2
 from keras.constraints import MinMaxNorm
-from sources.utils import combine_reg, rate_reg, MinMaxLimit
+from sources.utils import combine_reg, rate_reg, MinMaxLimit, symmetric_reg
 import tensorflow as tf, numpy as np, keras
 
 
@@ -34,25 +34,146 @@ class MaskChannel(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
+class PMask1DV(Layer):
+    def __init__(self, pre_mask=None, **kwargs):
+        self.pre_mask = pre_mask
+        super(PMask1DV, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        rate_list = [0.10, 0.20, 0.30, 0.40, 0.50]
+        sigma_list = [0.1124, 0.2047, 0.3217, 0.4327, 0.5387]
+        cross_list = [0.3070, 0.3789, 0.5712, 0.6825, 0.7049]
+        rate = rate_list[4]
+        sigma = sigma_list[4] / 1.4142  # / sqrt(2)
+        cross = cross_list[4]
+        min_prob = max(1.0 * np.exp(-np.square(cross / (np.sqrt(2) * sigma))), 0.01)
+        self.prob = self.add_weight(name='probability', trainable=True, shape=[1, 1, input_shape[1], 1],
+                                    # initializer=RandomUniform(minval=0., maxval=1.),
+                                    initializer=Constant(rate),
+                                    constraint=MinMaxLimit(min_value=min_prob, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.03, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.05, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.10, max_value=1.0),
+                                    # regularizer=None)
+                                    # regularizer=l1(1e-2))
+                                    # regularizer=combine_reg)
+                                    regularizer=rate_reg(rate))
+        self.mask = self.add_weight(name='mask', trainable=False, shape=self.prob.shape, initializer='ones')
+        self.output_dim = input_shape
+        super(PMask1DV, self).build(input_shape)  # be sure you call this somewhere!
+
+    def call(self, x):
+
+        if self.pre_mask is not None:
+            self.mask = tf.reshape(self.pre_mask, self.prob.shape)
+        else:
+            self.mask = self.binarize(self.prob)
+
+        y = x * (self.prob + tf.stop_gradient(self.mask - self.prob))
+        return y
+
+    def binarize(self, prob):
+        prob_vec = tf.reshape(prob, shape=[-1, 1])
+        zero_vec = 1. - prob_vec
+        prob_mat = tf.concat([zero_vec, prob_vec], axis=1)
+        samples = tf.random.categorical(tf.math.log(prob_mat), 1)
+        mask = tf.reshape(tf.cast(samples, 'float32'), shape=prob.shape)
+        return mask
+
+    def get_output_shape_for(self, input_shape):
+        return self.compute_output_shape(self, input_shape)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        # config = { 'output_dim': self.output_dim }
+        config = {}
+        base_config = super(PMask1DV, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
+class PMask1DH(Layer):
+    def __init__(self, pre_mask=None, **kwargs):
+        self.pre_mask = pre_mask
+        super(PMask1DH, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        rate = 0.30
+        a = -0.7297 * rate * rate + 0.9053 * rate + 0.8332
+        b = 0.0
+        c = rate
+        # d = -1.37 * rate * rate + 2.368 * rate - 0.0547
+        d = -0.7992 * rate * rate + 1.985 * rate + 0.0
+        min_prob = a * np.exp(- np.square((d - b) / c))
+        self.prob = self.add_weight(name='probability', trainable=True, shape=[1, input_shape[1], 1, 1],
+                                    # initializer=RandomUniform(minval=0., maxval=1.),
+                                    initializer=Constant(rate),
+                                    constraint=MinMaxLimit(min_value=min_prob, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.03, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.05, max_value=1.0),
+                                    # constraint=MinMaxLimit(min_value=0.10, max_value=1.0),
+                                    # regularizer=None)
+                                    # regularizer=l1(1e-2))
+                                    # regularizer=combine_reg)
+                                    regularizer=rate_reg(rate))
+        self.mask = self.add_weight(name='mask', trainable=False, shape=self.prob.shape, initializer='ones')
+        self.output_dim = input_shape
+        super(PMask1DH, self).build(input_shape)  # be sure you call this somewhere!
+
+    def call(self, x):
+
+        if self.pre_mask is not None:
+            self.mask = tf.reshape(self.pre_mask, self.prob.shape)
+        else:
+            self.mask = self.binarize(self.prob)
+
+        y = x * (self.prob + tf.stop_gradient(self.mask - self.prob))
+        return y
+
+    def binarize(self, prob):
+        prob_vec = tf.reshape(prob, shape=[-1, 1])
+        zero_vec = 1. - prob_vec
+        prob_mat = tf.concat([zero_vec, prob_vec], axis=1)
+        samples = tf.random.categorical(tf.math.log(prob_mat), 1)
+        mask = tf.reshape(tf.cast(samples, 'float32'), shape=prob.shape)
+        return mask
+
+    def get_output_shape_for(self, input_shape):
+        return self.compute_output_shape(self, input_shape)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        # config = { 'output_dim': self.output_dim }
+        config = {}
+        base_config = super(PMask1DH, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
 class PMask2D(Layer):
     def __init__(self, pre_mask=None, **kwargs):
         self.pre_mask = pre_mask
         super(PMask2D, self).__init__(**kwargs)
 
     def build(self, input_shape):
+        rate_list = [0.10, 0.20, 0.30, 0.40, 0.50]
+        # sigma_list = [0.2373, 0.3359, 0.4114, 0.4751, 0.5311]
+        # sigma = sigma_list[4]
+        # cross_list = [0.9434, 0.8861, 0.8274, 0.7666, 0.7034]
+        # cross = cross_list[4]
+        rate = rate_list[0]
+        min_prob = rate / np.sqrt(2 * np.pi)
         self.prob = self.add_weight(name='probability', trainable=True, shape=[1, input_shape[1], input_shape[2], 1],
                                     # initializer=RandomUniform(minval=0., maxval=1.),
-                                    initializer=Constant(0.10),
-                                    # constraint=MinMaxLimit(min_value=0.03, max_value=1.0),
-                                    # constraint=MinMaxLimit(min_value=0.05, max_value=1.0),
-                                    constraint=MinMaxLimit(min_value=0.07, max_value=1.0),
-                                    # constraint=MinMaxLimit(min_value=0.10, max_value=1.0),
-                                    # constraint=MinMaxNorm(min_value=0.0, max_value=1.0),
+                                    initializer=Constant(rate),
+                                    constraint=MinMaxLimit(min_value=min_prob, max_value=1.0),
                                     # regularizer=None)
                                     # regularizer=l1(1e-2))
-                                    # regularizer=combine_reg)
-                                    regularizer=rate_reg)
-        self.mask = self.add_weight(name='mask', trainable=False, shape=self.prob.shape, initializer='ones')
+                                    regularizer=rate_reg(rate))
+        self.mask = self.add_weight(name='mask', trainable=False, shape=self.prob.shape, initializer='ones',
+                                    constraint=MinMaxLimit(min_value=0.0, max_value=1.0), regularizer=None)
         self.output_dim = input_shape
         super(PMask2D, self).build(input_shape)  # be sure you call this somewhere!
 
@@ -174,32 +295,6 @@ class ProbMaskChannel(Layer):
         # config = { 'output_dim': self.output_dim }
         config = {}
         base_config = super(ProbMaskChannel, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
-
-class MaskChannel(Layer):
-    def __init__(self, **kwargs):
-        super(MaskChannel, self).__init__(**kwargs)
-
-    def build(self, input_shape):
-        self.mask = self.add_weight(name='mask', shape=[1, 1, 1, input_shape[-1]], initializer='ones', trainable=False)
-        # self.output_dim = input_shape
-        super(MaskChannel, self).build(input_shape)  # be sure you call this somewhere!
-
-    def call(self, x):
-        y = x * self.mask
-        return y
-
-    def get_output_shape_for(self, input_shape):
-        return self.compute_output_shape(self, input_shape)
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
-
-    def get_config(self):
-        # config = { 'output_dim': self.output_dim }
-        config = {}
-        base_config = super(MaskChannel, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 

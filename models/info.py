@@ -6,6 +6,8 @@ import sources.loss_func as custom_losses
 def get_custom_objects(config=None):
     custom_objects = {'MaskChannel': custom_layers.MaskChannel,
                       'PMask2D': custom_layers.PMask2D,
+                      'PMask1DH': custom_layers.PMask1DH,
+                      'PMask1DV': custom_layers.PMask1DV,
                       'IFFT2D': custom_layers.IFFT2D,
                       'PSNR': custom_losses.PSNR,
                       'SSIM': custom_losses.SSIM,
@@ -16,8 +18,8 @@ def get_custom_objects(config=None):
 
 def get_model_objects(config):
     model_objects = {
-                    'vdsr': vdsr,
-                     }
+        'vdsr': vdsr,
+    }
     base_name = config.base_name
     if base_name not in model_objects.keys():
         raise KeyError('No supported model for ' + base_name)

@@ -26,7 +26,8 @@ def base_compile(config):
 
 def vdsr_compile(config):
     losses = {'ift': 'mean_squared_error', 'rec': custom_losses.cross_domain_mse}
-    loss_weights = {'ift': 1., 'rec': 1.}
+    loss_weights = {'ift': 1., 'rec': 1.}   # with CNN
+    # loss_weights = {'ift': 1., 'rec': 0.}  # without CNN
     if config.optimizer == 'SGD':
         optimizer = SGD(lr=config.init_lr, momentum=0.9, nesterov=False)
     elif config.optimizer == 'Adam':
