@@ -1,6 +1,7 @@
 # 2D-PUPO
 This is an implementation of paper "S. Xue and R. Bai. 2D Probabilistic Undersampling Pattern Optimization for MR Image Reconstruction. *IEEE Transactions on Medical Imaging*, 2020, under review."
 
+![10% sampling rate](mask/synthesize_mask/syn_mask_0.10049.png)
 
 # Environment
 - OS: Ubuntu Linux kernel 4.15.0-76-generic x86_64
@@ -25,21 +26,21 @@ This is an implementation of paper "S. Xue and R. Bai. 2D Probabilistic Undersam
 
 # Train
 
-'''
+```
 python main.py --gpu=0 --run=train --dataset=MRI_3T --model=VDSR
-'''
+```
 
 # Parameters for training
 
 
 # Test
 
-'''
+```
 python main.py --gpu=0 --run=validate --dataset=MRI_3T --model=VDSR
-'''
+```
 
 # Contact
-Ph.D., Shengke Xue
+Ph.D., **Shengke Xue**
 
 College of Information Science and Electronic Engineering
 
