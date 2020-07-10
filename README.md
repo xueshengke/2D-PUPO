@@ -20,25 +20,29 @@ This is an implementation of paper "S. Xue and R. Bai. 2D Probabilistic Undersam
 
 # Dataset
 
-
+- 3T MR images
+- MICCAI images
 
 # Train
 
-
+'''
+python main.py --gpu=0 --run=train --dataset=MRI_3T --model=VDSR
+'''
 
 # Parameters for training
 
 
 # Test
 
-
+'''
+python main.py --gpu=0 --run=validate --dataset=MRI_3T --model=VDSR
+'''
 
 # Contact
-Ph.D. candidate, Shengke Xue
+Ph.D., Shengke Xue
 
 College of Information Science and Electronic Engineering
 
 Zhejiang University, Hangzhou, P.R. China
 
 Email: xueshengke@zju.edu.cn, xueshengke93@gmail.com
-
