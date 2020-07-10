@@ -8,6 +8,8 @@ run_cmds.txt
 
 checkpoints/*
 logs/*
+mask/generate.py
+mask/poisson_disc.py
 models/.ipynb_checkpoints/
 models/*.bak
 test/*.h5
