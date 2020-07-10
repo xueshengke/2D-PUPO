@@ -2,6 +2,7 @@
 This is an implementation of paper "S. Xue and R. Bai. 2D Probabilistic Undersampling Pattern Optimization for MR Image Reconstruction. *IEEE Transactions on Medical Imaging*, 2020, under review."
 
 ![10% sampling rate](mask/synthesize_mask/syn_mask_0.10049.png)
+![20% probability matrix](test/prob_mask_20_pdf_curve.jpg)
 
 # Environment
 - OS: Ubuntu Linux kernel 4.15.0-76-generic x86_64
