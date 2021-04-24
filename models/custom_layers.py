@@ -67,7 +67,8 @@ class PMask1DV(Layer):
         if self.pre_mask is not None:
             self.mask = tf.reshape(self.pre_mask, self.prob.shape)
         else:
-            self.mask = self.binarize(self.prob)
+#             self.mask = self.binarize(self.prob)
+            self.mask = self.sample_matrix(self.prob)
 
         y = x * (self.prob + tf.stop_gradient(self.mask - self.prob))
         return y
@@ -80,6 +81,32 @@ class PMask1DV(Layer):
         mask = tf.reshape(tf.cast(samples, 'float32'), shape=prob.shape)
         return mask
 
+    def sample_matrix(self, prob, threshold=2.5e-4):
+        """
+            sampling the mask matrix by using the probability matrix
+        @param prob: probability of all values
+        @param threshold: threshold to keep all sampling values to generate uniform points
+        @return: mask
+        """
+        mask = self.binarize(prob)
+        row_reg = 1e10
+        col_reg = 1e10
+
+        @tf.function
+        def cond(prob, mask, row_reg, col_reg):
+            return tf.greater(row_reg, threshold) or tf.greater(col_reg, threshold)
+
+        def body(prob, mask, row_reg, col_reg):
+            mask = binarize(prob)
+            row_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=0) - tf.reduce_mean(prob, axis=0)))
+            col_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=1) - tf.reduce_mean(prob, axis=1)))
+            # print('row diff norm:', args.sess.run(row_reg))
+            # print('col diff norm:', args.sess.run(col_reg))
+            return prob, mask, row_reg, col_reg
+
+        prob, mask, row_reg, col_reg = tf.while_loop(cond, body, [prob, mask, row_reg, col_reg])
+        return mask
+    
     def get_output_shape_for(self, input_shape):
         return self.compute_output_shape(self, input_shape)
 
@@ -126,7 +153,8 @@ class PMask1DH(Layer):
         if self.pre_mask is not None:
             self.mask = tf.reshape(self.pre_mask, self.prob.shape)
         else:
-            self.mask = self.binarize(self.prob)
+#             self.mask = self.binarize(self.prob)
+            self.mask = self.sample_matrix(self.prob)
 
         y = x * (self.prob + tf.stop_gradient(self.mask - self.prob))
         return y
@@ -139,6 +167,32 @@ class PMask1DH(Layer):
         mask = tf.reshape(tf.cast(samples, 'float32'), shape=prob.shape)
         return mask
 
+    def sample_matrix(self, prob, threshold=2.5e-4):
+        """
+            sampling the mask matrix by using the probability matrix
+        @param prob: probability of all values
+        @param threshold: threshold to keep all sampling values to generate uniform points
+        @return: mask
+        """
+        mask = self.binarize(prob)
+        row_reg = 1e10
+        col_reg = 1e10
+
+        @tf.function
+        def cond(prob, mask, row_reg, col_reg):
+            return tf.greater(row_reg, threshold) or tf.greater(col_reg, threshold)
+
+        def body(prob, mask, row_reg, col_reg):
+            mask = binarize(prob)
+            row_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=0) - tf.reduce_mean(prob, axis=0)))
+            col_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=1) - tf.reduce_mean(prob, axis=1)))
+            # print('row diff norm:', args.sess.run(row_reg))
+            # print('col diff norm:', args.sess.run(col_reg))
+            return prob, mask, row_reg, col_reg
+
+        prob, mask, row_reg, col_reg = tf.while_loop(cond, body, [prob, mask, row_reg, col_reg])
+        return mask
+    
     def get_output_shape_for(self, input_shape):
         return self.compute_output_shape(self, input_shape)
 
@@ -182,7 +236,8 @@ class PMask2D(Layer):
         if self.pre_mask is not None:
             self.mask = tf.reshape(self.pre_mask, self.prob.shape)
         else:
-            self.mask = self.binarize(self.prob)
+#             self.mask = self.binarize(self.prob)
+            self.mask = self.sample_matrix(self.prob)
 
         y = x * (self.prob + tf.stop_gradient(self.mask - self.prob))
         return y
@@ -195,6 +250,32 @@ class PMask2D(Layer):
         mask = tf.reshape(tf.cast(samples, 'float32'), shape=prob.shape)
         return mask
 
+    def sample_matrix(self, prob, threshold=2.5e-4):
+        """
+            sampling the mask matrix by using the probability matrix
+        @param prob: probability of all values
+        @param threshold: threshold to keep all sampling values to generate uniform points
+        @return: mask
+        """
+        mask = self.binarize(prob)
+        row_reg = 1e10
+        col_reg = 1e10
+
+        @tf.function
+        def cond(prob, mask, row_reg, col_reg):
+            return tf.greater(row_reg, threshold) or tf.greater(col_reg, threshold)
+
+        def body(prob, mask, row_reg, col_reg):
+            mask = binarize(prob)
+            row_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=0) - tf.reduce_mean(prob, axis=0)))
+            col_reg = tf.reduce_mean(tf.square(tf.reduce_mean(mask, axis=1) - tf.reduce_mean(prob, axis=1)))
+            # print('row diff norm:', args.sess.run(row_reg))
+            # print('col diff norm:', args.sess.run(col_reg))
+            return prob, mask, row_reg, col_reg
+
+        prob, mask, row_reg, col_reg = tf.while_loop(cond, body, [prob, mask, row_reg, col_reg])
+        return mask
+    
     def get_output_shape_for(self, input_shape):
         return self.compute_output_shape(self, input_shape)
 
